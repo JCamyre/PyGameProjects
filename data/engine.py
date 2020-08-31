@@ -1,6 +1,8 @@
 import pygame, math, os
 from pygame.locals import *
 
+# Add an fps thing for engine
+
 global e_colorkey
 e_colorkey = (255,255,255)
 
@@ -113,7 +115,7 @@ class entity(object):
         self.y = y
         self.size_x = size_x
         self.size_y = size_y
-        self.obj = physics_obj(x,y,size_x,size_y)
+        self.obj = physics_obj(x,y,size_x,size_y) # use this attribute to access the rect
         self.animation = None
         self.image = None
         self.animation_frame = 0

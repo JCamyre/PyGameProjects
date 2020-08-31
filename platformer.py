@@ -46,6 +46,21 @@ def generate_chunk(x, y):
                 chunk_data.append([[target_x, target_y], tile_type])
     return chunk_data
 
+class JumperObject:
+    def __init__(self, loc):
+        self.loc = loc 
+
+    def render(self, surf, scroll):
+        surf.blit(jumper_img, (self.loc[0] - scroll[0], self.loc[1] - scroll[1]))
+
+    def get_rect(self):
+        return pygame.Rect(self.loc[0], self.loc[1], 8, 9)
+
+    def collision_test(self, rect): # test if the player's rect is touching it
+        jumper_rect = self.get_rect()
+        return jumper_rect.colliderect(rect)
+
+
 e.load_animations('data/images/entities/')
 
 game_map = {}
@@ -54,6 +69,9 @@ grass_img = pygame.image.load('data/images/grass.png')
 dirt_img = pygame.image.load('data/images/dirt.png')
 plant_img = pygame.image.load('data/images/plant.png').convert()
 plant_img.set_colorkey((255, 255, 255))
+
+jumper_img = pygame.image.load('data/images/jumper.png').convert()
+jumper_img.set_colorkey((255, 255, 255))
 
 tile_index = {
     1: grass_img,
@@ -116,6 +134,11 @@ grass_sound_timer = 0
 
 player = e.entity(100, 100, 5, 13, 'player')
 
+enemies = []
+
+for i in range(5):
+    enemies.append([0, e.entity(random.randint(0, 600)-300, 80, 13, 13, 'enemy')])
+
 class Rect(pygame.Rect):
     def __init__(self, x, y, width, height):
         super().__init__(x, y, width, height)
@@ -124,6 +147,11 @@ class Rect(pygame.Rect):
         return f'x: {self.x}, y: {self.y}, width: {self.width}, height: {self.height}'
 
 background_objects = [[0.25,[120,10,70,400]],[0.25,[280,30,40,400]],[0.5,[30,40,40,400]],[0.5,[130,90,100,400]],[0.5,[300,80,120,400]]]
+
+jumper_objects = []
+
+for i in range(10):
+    jumper_objects.append(JumperObject((random.randint(0, 600) - 300, 80)))
 
 while True: # game loop
     display.fill((146,244,255)) # clear screen by filling it with blue
@@ -211,6 +239,40 @@ while True: # game loop
     player.change_frame(1)
     player.display(display, scroll)
 
+    for jumper in jumper_objects:
+        jumper.render(display, scroll)
+        if jumper.collision_test(player.obj.rect):
+            vertical_momentum = -6
+
+    display_r = pygame.Rect(scroll[0], scroll[1], 300, 200) # Basically uses scroll at the top left corner of our display rectangle
+    # if something collides with the rectangle, then we can display it as it is in our view
+
+    for enemy in enemies:
+        if display_r.colliderect(enemy[1].obj.rect):
+            for bullet in bullets:      
+                if bullet.rect.colliderect(enemy[1].obj.rect):
+                    enemies.remove(enemy)
+                    bullets.remove(bullet)
+                    continue
+            enemy[0] += 0.08
+            if enemy[0] > 3:
+                enemy[0] = 3
+            enemy_movement = [0, enemy[0]]
+            if player.x > enemy[1].x + 5: # enemy[1].x access the enemies rect's x coord
+                enemy_movement[0] = 0.75
+            if player.x < enemy[1].x - 5:
+                enemy_movement[0] = -0.75
+            collision_types = enemy[1].move(enemy_movement, tile_rects)
+            if collision_types['bottom']:
+                enemy[0] = 0
+
+            enemy[1].display(display, scroll)
+
+            if player.obj.rect.colliderect(enemy[1].obj.rect):
+                vertical_momentum = -1.5
+
+
+
     for bullet in bullets:
         # If collides with wall, it breaks
         bullet.timer += 1
@@ -239,7 +301,7 @@ while True: # game loop
             if event.key == K_SPACE:
                 if air_timer < 16:
                     jump_sound.play()
-                    vertical_momentum = -3
+                    vertical_momentum = -4
             if event.key == K_j:
                 bullets.append(Bullet(scroll))
                 gun_sound.play()

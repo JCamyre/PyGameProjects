@@ -32,17 +32,12 @@ target = pygame.Rect(400, 400, 100, 100)
 
 player_rect = pygame.Rect(600, 400, 40, 104)
 
-def player_mouse_direction(flip=False):
+def player_mouse_direction():
 	mx, my = pygame.mouse.get_pos()
-	x, y = player_rect.x, player_rect.y 
+	x, y = player_rect.x, player_rect.y+25 
 	hypotenuse = ((mx - x)**2 + (my - y)**2)**0.5
 	height = my - y
-	# How to get full 360 instead of the 0-90 range for a triangle (like a triangle in quadrant 3)
-	direction1 = asin(height/hypotenuse)
-	direction2 = acos((mx-x)/hypotenuse)
-	if flip:
-		print(direction*-1)
-		return direction * -1
+	direction = asin(height/hypotenuse)
 	return direction 
 
 class Bullet:
@@ -50,14 +45,16 @@ class Bullet:
 	def __init__(self):
 		self.x = player_rect.x
 		self.y = player_rect.y
-		self.direction = player_mouse_direction(flip=player_flip)
+		self.direction = player_mouse_direction()
 		self.vel_x = 0
 		self.vel_y = 0
 		self.get_velocity(10)
 
-	# For full 360 movement, get the direction you want to go, then self.y_vel and self.x_vel
 	def get_velocity(self, hypotenuse):
-		self.vel_x = hypotenuse * cos(self.direction)
+		if player_flip:
+			self.vel_x = -1 * hypotenuse * cos(self.direction)
+		else:
+			self.vel_x = hypotenuse * cos(self.direction)
 		self.vel_y = hypotenuse * sin(self.direction)
 
 
@@ -100,7 +97,8 @@ while True:
 		# screen.blit(pygame.transform.rotate(img, degrees), (x, y))
 		bullet.x += bullet.vel_x 
 		bullet.y += bullet.vel_y
-		screen.blit(bullet_img, (bullet.x, bullet.y))
+		pygame.draw.rect(screen, (255, 255, 0), pygame.Rect(bullet.x, bullet.y, 50, 50))
+		# screen.blit(bullet_img, (bullet.x, bullet.y))
 
 	loc = [mx, my]
 	img_dimensions = crosshair.get_size()

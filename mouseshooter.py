@@ -51,6 +51,9 @@ class Bullet:
 		self.get_velocity(10)
 		self.count = 0
 
+	def fired_pos(self):
+		self.rect = pygame.Rect(player_rect.x, player_rect.y+10, 36, 16)
+
 	def get_velocity(self, hypotenuse):
 		if self.flip:
 			self.vel_x = -1 * hypotenuse * cos(self.direction)
@@ -62,6 +65,26 @@ class Bullet:
 		self.rect.x += self.vel_x
 		self.rect.y += self.vel_y
 
+# do I have bullets in the gun class? To track when to reload. 
+# Could have a base gun class and have classes for them.
+class Gun:
+
+	def __init__(self):
+		self.bullets = []
+		self.mag_size = 9
+
+	def reload(self):
+		self.bullets = [Bullet() for bullet in range(mag_size)] 
+
+	def shoot(self):
+		# pop() returns on its own right?
+		self.bullets.pop(0).fired_pos()
+
+
+gun_img = pygame.image.load('M1911.png').convert()
+gun_img = pygame.transform.scale(gun_img, (44, 32))
+gun_img.set_colorkey((255, 255, 255))
+# 436, 332
 
 bullet_img = pygame.image.load('bullet.png').convert()
 bullet_img = pygame.transform.scale(bullet_img, (36, 16))
@@ -80,14 +103,24 @@ class Enemy:
 		self.y = random.randint(50, 1400)
 		self.rect = pygame.Rect(self.x, self.y, 35, 35)
 
+	# Need to make a universal method for x and y velocity. If you know where you want to go, automatically does x and y velocity
+	# given a certain max velocity. 
 	def move(self, x, y):
-		self.x += x
-		self.y += y
+		if player_rect.x > self.x + 10:
+			self.x += 15
+		else:
+			self.x -= 15
+
+		if player_rect.y > self.y + 10:
+			self.y += 15
+		else:
+			self.y -= 15
+
 		self.rect = pygame.Rect(self.x, self.y, 35, 35)
 
 enemies = []
 
-for _ in range(random.randint(5, 15)):
+for _ in range(random.randint(5, 10)):
 	enemies.append(Enemy())
 
 print(len(enemies))
@@ -114,20 +147,26 @@ while True:
 
 	# Mouse aiming
 	mx, my = pygame.mouse.get_pos()
-	# print(mx, player_rect.x - scroll[0])
 	if mx > player_rect.x - scroll[0]:
 		player_flip = False
 	else:	
 		player_flip = True
 
 	if player_rect.y - scroll[1] < my:
-		screen.blit(pygame.transform.flip(pygame.transform.scale(char_front, (20, 52)), player_flip, False), (player_rect.x - scroll[0], player_rect.y - scroll[1]))
+		screen.blit(pygame.transform.flip(pygame.transform.scale(char_front, (40, 104)), player_flip, False), (player_rect.x - scroll[0], player_rect.y - scroll[1]))
 	else:
-		screen.blit(pygame.transform.flip(pygame.transform.scale(char_behind, (20, 52)), player_flip, False), (player_rect.x - scroll[0], player_rect.y - scroll[1]))
+		screen.blit(pygame.transform.flip(pygame.transform.scale(char_behind, (40, 104)), player_flip, False), (player_rect.x - scroll[0], player_rect.y - scroll[1]))
+	# Add direction, pygame.transform.rotate()
+	if player_flip:
+		screen.blit(pygame.transform.rotate(pygame.transform.flip(gun_img, player_flip, False), degrees(player_mouse_direction())), (player_rect.x - 30 - scroll[0], player_rect.y + 20 - scroll[1]))
+	else:
+		screen.blit(pygame.transform.rotate(pygame.transform.flip(gun_img, player_flip, False), -1 * degrees(player_mouse_direction())), (player_rect.x + 25 - scroll[0], player_rect.y + 20 - scroll[1]))
 
 
 	for enemy in enemies:
-		enemy.move(random.randint(-20, 20), 0)
+		# Enemy movement determined by player position + it just moves a little bit randomly
+		if random.randint(0, 20) == 0:
+			enemy.move(random.randint(-10, 10), random.randint(-10, 10))
 		screen.blit(enemy_img, (enemy.rect.x - scroll[0], enemy.rect.y - scroll[1]))
 		for bullet in bullets:
 			if enemy.rect.colliderect(bullet.rect):
@@ -141,11 +180,12 @@ while True:
 			bullets.remove(bullet)
 			continue
 		bullet.move()
-		# pygame.draw.line(screen, (0, 255, 0), (player_rect.x-true_scroll[0], player_rect.y-true_scroll[0]+10), (bullet.rect.x - scroll[0], bullet.rect.y - scroll[1]))
+
 		if bullet.flip:		
 			modified_bullet_img = pygame.transform.rotate(pygame.transform.flip(bullet_img, bullet.flip, False), degrees(bullet.direction))
 		else:
 			modified_bullet_img = pygame.transform.rotate(pygame.transform.flip(bullet_img, bullet.flip, False), degrees(-1*bullet.direction))		
+		# Bullet speed is relative if I am moving/sprinting. Cringe.
 		screen.blit(modified_bullet_img, (bullet.rect.x - scroll[0], bullet.rect.y - scroll[1]))
 
 	mouseloc = [mx, my]
@@ -170,7 +210,6 @@ while True:
 
 	player_rect.x += player_movement[0]
 	player_rect.y += player_movement[1]
-
 
 	for event in pygame.event.get():
 		if event.type == QUIT:

@@ -43,16 +43,18 @@ def player_mouse_direction():
 class Bullet:
 
 	def __init__(self):
-		self.rect = pygame.Rect(player_rect.x, player_rect.y+10, 36, 16)
-		self.direction = player_mouse_direction()
 		self.vel_x = 0
 		self.vel_y = 0
-		self.flip = player_flip
-		self.get_velocity(10)
 		self.count = 0
 
-	def fired_pos(self):
-		self.rect = pygame.Rect(player_rect.x, player_rect.y+10, 36, 16)
+	def pos(self):
+		if player_flip:
+			self.rect = pygame.Rect(player_rect.x-5, player_rect.y+20, 36, 16)
+		else:
+			self.rect = pygame.Rect(player_rect.x+5, player_rect.y+20, 36, 16)
+		self.direction = player_mouse_direction()
+		self.flip = player_flip
+		self.get_velocity(10)
 
 	def get_velocity(self, hypotenuse):
 		if self.flip:
@@ -69,17 +71,19 @@ class Bullet:
 # Could have a base gun class and have classes for them.
 class Gun:
 
-	def __init__(self):
-		self.bullets = []
-		self.mag_size = 9
+	def __init__(self, mag_size):
+		self.mag_size = mag_size
+		self.reload()
 
 	def reload(self):
-		self.bullets = [Bullet() for bullet in range(mag_size)] 
+		print('Reloading...')
+		self.bullets = [Bullet() for bullet in range(self.mag_size)] 
 
 	def shoot(self):
 		# pop() returns on its own right?
-		self.bullets.pop(0).fired_pos()
-
+		bullet = self.bullets.pop(0)
+		bullet.pos()
+		return bullet
 
 gun_img = pygame.image.load('M1911.png').convert()
 gun_img = pygame.transform.scale(gun_img, (44, 32))
@@ -123,11 +127,10 @@ enemies = []
 for _ in range(random.randint(5, 10)):
 	enemies.append(Enemy())
 
-print(len(enemies))
-clicking = False
-
 player_flip = False
 player_sprint = False
+player_roll = False
+player_roll_frame = 0
 
 moving_right = False
 moving_left = False
@@ -135,6 +138,14 @@ moving_forward = False
 moving_backward = False
 
 true_scroll = [0, 0]
+
+true_scroll[0] += (player_rect.x-true_scroll[0]-700)/15
+true_scroll[1] += (player_rect.y-true_scroll[1]-500)/15
+scroll = true_scroll.copy()
+scroll[0] = int(scroll[0])
+scroll[1] = int(scroll[1])
+
+player_gun = Gun(9)
 
 while True:
 	screen.fill((117, 18, 255))
@@ -153,7 +164,13 @@ while True:
 		player_flip = True
 
 	if player_rect.y - scroll[1] < my:
-		screen.blit(pygame.transform.flip(pygame.transform.scale(char_front, (40, 104)), player_flip, False), (player_rect.x - scroll[0], player_rect.y - scroll[1]))
+		if player_roll:
+			screen.blit(pygame.transform.rotate(pygame.transform.flip(pygame.transform.scale(char_front, (40, 104)), player_flip, False), (player_rect.x - scroll[0], player_rect.y - scroll[1]), player_roll_frame%15 * 90))
+			player_roll_frame += 1
+			if player_roll_frame > 60:
+				player_roll = False
+		else:
+			screen.blit(pygame.transform.flip(pygame.transform.scale(char_front, (40, 104)), player_flip, False), (player_rect.x - scroll[0], player_rect.y - scroll[1]))
 	else:
 		screen.blit(pygame.transform.flip(pygame.transform.scale(char_behind, (40, 104)), player_flip, False), (player_rect.x - scroll[0], player_rect.y - scroll[1]))
 	# Add direction, pygame.transform.rotate()
@@ -174,6 +191,24 @@ while True:
 				enemies.remove(enemy)
 				bullets.remove(bullet)
 
+	player_movement = [0, 0]
+
+	if moving_right:
+		player_movement[0] = 2
+	if moving_left:
+		player_movement[0] = -2
+	if moving_forward:
+		player_movement[1] = -2
+	if moving_backward:
+		player_movement[1] = 2
+
+	if player_sprint:
+		player_movement[0] *= 2
+		player_movement[1] *= 2
+
+	player_rect.x += player_movement[0]
+	player_rect.y += player_movement[1]
+
 	for bullet in bullets:
 		bullet.count += 1
 		if bullet.count > 144: 
@@ -193,24 +228,6 @@ while True:
 	mid_x, mid_y = mouseloc[0] - img_dimensions[0]//2, mouseloc[1] - img_dimensions[1]//2
 	screen.blit(crosshair, (mid_x + offset[0], mid_y + offset[1]))
 
-	player_movement = [0, 0]
-
-	if moving_right:
-		player_movement[0] = 4
-	if moving_left:
-		player_movement[0] = -4
-	if moving_forward:
-		player_movement[1] = -4
-	if moving_backward:
-		player_movement[1] = 4
-
-	if player_sprint:
-		player_movement[0] *= 2
-		player_movement[1] *= 2
-
-	player_rect.x += player_movement[0]
-	player_rect.y += player_movement[1]
-
 	for event in pygame.event.get():
 		if event.type == QUIT:
 			pygame.quit()
@@ -227,6 +244,8 @@ while True:
 				moving_forward = True
 			if event.key == K_s:
 				moving_backward = True
+			if event.key == K_r:
+				player_gun.reload()
 			if event.key == K_LSHIFT:
 				player_sprint = True
 			if event.key == K_SPACE:
@@ -246,12 +265,16 @@ while True:
 				player_roll = False
 		if event.type == MOUSEBUTTONDOWN:
 			if event.button == 1:
-				gun_sound.play()
-				clicking = True
-				bullets.append(Bullet())
+				if len(player_gun.bullets) > 0:			
+					gun_sound.play()
+					bullets.append(player_gun.shoot())
+				else:
+					print('Your clip is empty')
+			if event.button == 2:
+				player_roll = True
 		if event.type == MOUSEBUTTONUP:
-			if event.button == 1:
-				clicking = False
+			if event.button == 2:
+				player_roll = False
 
 	font = pygame.font.SysFont('gillsans', 35)
 	display_direction = font.render(str(player_mouse_direction()), True, pygame.Color('white'))
@@ -259,6 +282,9 @@ while True:
 
 	position = font.render(str(player_rect.x) + ', ' + str(player_rect.y), True, pygame.Color('white'))
 	screen.blit(position, (25, 75))
+
+	ammo = font.render(str(len(player_gun.bullets)) + '/' + str(player_gun.mag_size), True, pygame.Color('white'))
+	screen.blit(ammo, (25, 125))
 
 	pygame.display.update()
 	mainClock.tick(144)
